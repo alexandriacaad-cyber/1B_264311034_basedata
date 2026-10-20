@@ -1,0 +1,46 @@
+-- 1. Tabel master pengguna
+CREATE TABLE pengguna (
+    id_pengguna INT UNSIGNED AUTO_INCREMENT,
+    nama_pengguna VARCHAR(100) NOT NULL,
+    nomor_identitas VARCHAR(30) NOT NULL,
+    id_fingerprint INT UNSIGNED NOT NULL,
+
+    PRIMARY KEY (id_pengguna),
+    UNIQUE KEY uk_nomor_identitas (nomor_identitas),
+    UNIQUE KEY uk_id_fingerprint (id_fingerprint)
+) ENGINE=InnoDB;
+
+-- 2. Tabel master pintu
+CREATE TABLE pintu (
+    id_pintu INT UNSIGNED AUTO_INCREMENT,
+    nama_pintu VARCHAR(100) NOT NULL,
+    lokasi VARCHAR(150) NOT NULL,
+    status_aktif ENUM('AKTIF', 'NONAKTIF')
+        NOT NULL DEFAULT 'AKTIF',
+
+    PRIMARY KEY (id_pintu)
+) ENGINE=InnoDB;
+
+-- 3. Tabel transaksi log akses
+CREATE TABLE log_akses (
+    id_log BIGINT UNSIGNED AUTO_INCREMENT,
+    id_pengguna INT UNSIGNED NULL,
+    id_pintu INT UNSIGNED NOT NULL,
+    waktu_akses DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status_akses ENUM('BERHASIL', 'DITOLAK') NOT NULL,
+    keterangan VARCHAR(255) NULL,
+
+    PRIMARY KEY (id_log),
+
+    CONSTRAINT fk_log_pengguna
+        FOREIGN KEY (id_pengguna)
+        REFERENCES pengguna (id_pengguna)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_log_pintu
+        FOREIGN KEY (id_pintu)
+        REFERENCES pintu (id_pintu)
+        ON UPDATE CASCADE
+         ON DELETE RESTRICT
+) ENGINE=InnoDB;
