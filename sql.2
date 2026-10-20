@@ -1,0 +1,41 @@
+-- A. Menambahkan 3 baris ke tabel induk pengguna
+INSERT INTO pengguna
+    (id_pengguna, nama_pengguna, nomor_identitas, id_fingerprint)
+VALUES
+    (1, 'Alexsandria', 'USR001', 101),
+    (2, 'Annisa nimas', 'USR002', 102),
+    (3, 'Nazril Desta', 'USR003', 103);
+
+
+-- B. Menambahkan 3 baris ke tabel induk pintu
+INSERT INTO pintu
+    (id_pintu, nama_pintu, lokasi, status_aktif)
+VALUES
+    (1, 'Pintu Utama', 'Lobi Gedung', 'AKTIF'),
+    (2, 'Pintu Laboratorium', 'Lantai 2', 'AKTIF'),
+    (3, 'Pintu Gudang', 'Lantai 1', 'AKTIF');
+
+
+-- C. Menambahkan 3 baris ke tabel transaksi log_akses
+INSERT INTO log_akses
+    (id_log, id_pengguna, id_pintu, waktu_akses,
+     status_akses, keterangan)
+VALUES
+    (1, 1, 1, '2026-10-20 08:00:00',
+     'BERHASIL', 'Sidik jari dikenali, pintu terbuka'),
+    (2, 2, 2, '2026-10-20 08:10:00',
+     'DITOLAK', 'Pengguna tidak memiliki izin akses'),
+    (3, 3, 3, '2026-10-20 08:20:00',
+     'BERHASIL', 'Sidik jari dikenali, pintu terbuka');
+
+    -- READ
+     SELECT * FROM 'pengguna' WHERE 2
+
+-- UPDATE
+     UPDATE log_akses
+SET keterangan = 'Akses ditolak: izin tidak valid'
+WHERE id_log = 2;
+
+-- DELETE
+DELETE FROM log_akses
+WHERE id_log = 2;
