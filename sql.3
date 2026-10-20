@@ -1,0 +1,9 @@
+SELECT
+    p.id_pengguna,
+    p.nama_pengguna,
+    COUNT(l.id_log) AS total_akses_berhasil
+FROM pengguna AS p
+JOIN log_akses AS l
+    ON p.id_pengguna = l.id_pengguna
+WHERE l.status_akses = 'BERHASIL'
+GROUP BY p.id_pengguna, p.nama_pengguna;
