@@ -1,0 +1,179 @@
+-- ==========================================================
+-- TAHAP 1NF
+-- ==========================================================
+CREATE TABLE akses_1nf (
+    id_pengguna      VARCHAR(10),
+    jenis_jari       VARCHAR(20),
+    id_pintu         VARCHAR(10),
+    waktu_akses      DATETIME,
+    nama             VARCHAR(100),
+    no_hp            VARCHAR(15),
+    id_role          VARCHAR(5),
+    nama_role        VARCHAR(30),
+    level_akses      INT,
+    template_hash    VARCHAR(255),
+    id_ruangan       VARCHAR(10),
+    nama_ruangan     VARCHAR(50),
+    lantai           INT,
+    versi_firmware   VARCHAR(20),
+    jam_mulai        TIME,
+    jam_selesai      TIME,
+    hasil            VARCHAR(10),
+    PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses)
+);
+
+-- ==========================================================
+-- TAHAP 2NF
+-- ==========================================================
+CREATE TABLE pengguna_2nf (
+    id_pengguna  VARCHAR(10) PRIMARY KEY,
+    nama         VARCHAR(100),
+    no_hp        VARCHAR(15),
+    id_role      VARCHAR(5),
+    nama_role    VARCHAR(30),      -- transitif: id_role -> nama_role
+    level_akses  INT               -- transitif: id_role -> level_akses
+);
+
+CREATE TABLE sidik_jari_2nf (
+    id_pengguna    VARCHAR(10),
+    jenis_jari     VARCHAR(20),
+    template_hash  VARCHAR(255),
+    PRIMARY KEY (id_pengguna, jenis_jari),
+    FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf(id_pengguna)
+);
+
+CREATE TABLE pintu_2nf (
+    id_pintu        VARCHAR(10) PRIMARY KEY,
+    id_ruangan      VARCHAR(10),
+    nama_ruangan    VARCHAR(50),   -- transitif: id_ruangan -> nama_ruangan
+    lantai          INT,           -- transitif: id_ruangan -> lantai
+    versi_firmware  VARCHAR(20)
+);
+
+CREATE TABLE hak_akses_2nf (
+    id_pengguna  VARCHAR(10),
+    id_pintu     VARCHAR(10),
+    jam_mulai    TIME,
+    jam_selesai  TIME,
+    PRIMARY KEY (id_pengguna, id_pintu),
+    FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf(id_pengguna),
+    FOREIGN KEY (id_pintu)    REFERENCES pintu_2nf(id_pintu)
+);
+
+CREATE TABLE log_akses_2nf (
+    id_pengguna  VARCHAR(10),
+    jenis_jari   VARCHAR(20),
+    id_pintu     VARCHAR(10),
+    waktu_akses  DATETIME,
+    hasil        VARCHAR(10),
+    PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses),
+    FOREIGN KEY (id_pengguna, jenis_jari) REFERENCES sidik_jari_2nf(id_pengguna, jenis_jari),
+    FOREIGN KEY (id_pintu) REFERENCES pintu_2nf(id_pintu)
+);
+
+-- ==========================================================
+-- TAHAP 3NF
+-- ==========================================================
+CREATE TABLE role (
+    id_role      INT PRIMARY KEY,
+    nama_role    VARCHAR(30),
+    level_akses  INT
+);
+
+CREATE TABLE ruangan (
+    id_ruangan    INT PRIMARY KEY,
+    nama_ruangan  VARCHAR(50),
+    lantai        INT,
+    gedung        VARCHAR(50)
+);
+
+CREATE TABLE pengguna (
+    id_pengguna   INT PRIMARY KEY,
+    nama          VARCHAR(100),
+    nim_nip       VARCHAR(20),
+    no_hp         VARCHAR(15),
+    status_aktif  BOOLEAN,
+    id_role       INT,
+    FOREIGN KEY (id_role) REFERENCES role(id_role)
+);
+
+CREATE TABLE sidik_jari (
+    id_jari        INT PRIMARY KEY,
+    id_pengguna    INT,
+    jenis_jari     VARCHAR(20),
+    template_hash  VARCHAR(255),
+    tgl_daftar     DATE,
+    FOREIGN KEY (id_pengguna) REFERENCES pengguna(id_pengguna)
+);
+
+CREATE TABLE pintu (
+    id_pintu          INT PRIMARY KEY,
+    id_ruangan        INT,
+    kode_perangkat    VARCHAR(30),
+    versi_firmware    VARCHAR(20),
+    status_perangkat  VARCHAR(15),
+    FOREIGN KEY (id_ruangan) REFERENCES ruangan(id_ruangan)
+);
+
+CREATE TABLE hak_akses (
+    id_hak_akses   INT PRIMARY KEY,
+    id_pengguna    INT,
+    id_pintu       INT,
+    jam_mulai      TIME,
+    jam_selesai    TIME,
+    berlaku_dari   DATE,
+    berlaku_sampai DATE,
+    FOREIGN KEY (id_pengguna) REFERENCES pengguna(id_pengguna),
+    FOREIGN KEY (id_pintu)    REFERENCES pintu(id_pintu)
+);
+
+CREATE TABLE tamu (
+    id_tamu        INT PRIMARY KEY,
+    nama           VARCHAR(100),
+    no_identitas   VARCHAR(30),
+    no_hp          VARCHAR(15),
+    instansi       VARCHAR(100)
+);
+
+CREATE TABLE permintaan_akses_tamu (
+    id_permintaan   INT PRIMARY KEY,
+    id_tamu         INT,
+    id_host         INT,
+    id_pintu        INT,
+    id_penyetuju    INT,
+    waktu_mulai     DATETIME,
+    waktu_selesai   DATETIME,
+    kode_akses_hash VARCHAR(255),
+    status          VARCHAR(15),
+    FOREIGN KEY (id_tamu)      REFERENCES tamu(id_tamu),
+    FOREIGN KEY (id_host)      REFERENCES pengguna(id_pengguna),
+    FOREIGN KEY (id_pintu)     REFERENCES pintu(id_pintu),
+    FOREIGN KEY (id_penyetuju) REFERENCES pengguna(id_pengguna)
+);
+
+CREATE TABLE log_akses (
+    id_log         INT PRIMARY KEY,
+    id_pintu       INT,
+    id_jari        INT,
+    id_permintaan  INT,
+    waktu_akses    DATETIME,
+    metode         VARCHAR(15),
+    hasil          VARCHAR(10),
+    alasan_gagal   VARCHAR(100),
+    FOREIGN KEY (id_pintu)      REFERENCES pintu(id_pintu),
+    FOREIGN KEY (id_jari)       REFERENCES sidik_jari(id_jari),
+    FOREIGN KEY (id_permintaan) REFERENCES permintaan_akses_tamu(id_permintaan)
+);
+
+CREATE TABLE peringatan_keamanan (
+    id_peringatan  INT PRIMARY KEY,
+    id_pintu       INT,
+    id_log         INT,
+    jenis          VARCHAR(30),
+    waktu          DATETIME,
+    status         VARCHAR(15),
+    id_penangani   INT,
+    FOREIGN KEY (id_pintu)     REFERENCES pintu(id_pintu),
+    FOREIGN KEY (id_log)       REFERENCES log_akses(id_log),
+    FOREIGN KEY (id_penangani) REFERENCES pengguna(id_pengguna)
+);
