@@ -177,3 +177,163 @@ CREATE TABLE peringatan_keamanan (
     FOREIGN KEY (id_log)       REFERENCES log_akses(id_log),
     FOREIGN KEY (id_penangani) REFERENCES pengguna(id_pengguna)
 );
+
+-- ==========================================================
+-- SMART DOOR LOCK FINGERPRINT - PEMODELAN FISIK
+-- ==========================================================
+DROP DATABASE IF EXISTS smartdoorlock;
+CREATE DATABASE smartdoorlock CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE smartdoorlock;
+
+-- 1. PERAN (sebelumnya: role)
+CREATE TABLE peran (
+    id_peran     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nama_peran   VARCHAR(30) NOT NULL,
+    level_akses  ENUM('1','2','3','4','5') NOT NULL,
+    PRIMARY KEY (id_peran),
+    UNIQUE KEY uq_nama_peran (nama_peran)
+) ENGINE=InnoDB;
+
+-- 2. RUANGAN
+CREATE TABLE ruangan (
+    id_ruangan    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nama_ruangan  VARCHAR(50) NOT NULL,
+    lantai        TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    gedung        VARCHAR(50) NOT NULL,
+    PRIMARY KEY (id_ruangan),
+    UNIQUE KEY uq_ruangan (gedung, nama_ruangan)
+) ENGINE=InnoDB;
+
+-- 3. PENGGUNA
+CREATE TABLE pengguna (
+    id_pengguna   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nama          VARCHAR(100) NOT NULL,
+    nim_nip       VARCHAR(20) NOT NULL,
+    no_hp         VARCHAR(15) NULL,
+    status_aktif  ENUM('AKTIF','NONAKTIF') NOT NULL DEFAULT 'AKTIF',
+    id_peran      INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id_pengguna),
+    UNIQUE KEY uq_nim_nip (nim_nip),
+    CONSTRAINT fk_pengguna_peran FOREIGN KEY (id_peran)
+        REFERENCES peran(id_peran) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- 4. SIDIK_JARI
+CREATE TABLE sidik_jari (
+    id_jari        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_pengguna    INT UNSIGNED NOT NULL,
+    jenis_jari     ENUM('JEMPOL_KANAN','TELUNJUK_KANAN','TENGAH_KANAN','MANIS_KANAN','KELINGKING_KANAN',
+                        'JEMPOL_KIRI','TELUNJUK_KIRI','TENGAH_KIRI','MANIS_KIRI','KELINGKING_KIRI') NOT NULL,
+    template_hash  VARCHAR(255) NOT NULL,
+    tgl_daftar     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_jari),
+    UNIQUE KEY uq_jari_pengguna (id_pengguna, jenis_jari),
+    CONSTRAINT fk_jari_pengguna FOREIGN KEY (id_pengguna)
+        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- 5. PINTU
+CREATE TABLE pintu (
+    id_pintu          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_ruangan        INT UNSIGNED NOT NULL,
+    kode_perangkat    VARCHAR(30) NOT NULL,
+    versi_firmware    VARCHAR(20) NOT NULL,
+    status_perangkat  ENUM('AKTIF','NONAKTIF','MAINTENANCE') NOT NULL DEFAULT 'AKTIF',
+    PRIMARY KEY (id_pintu),
+    UNIQUE KEY uq_kode_perangkat (kode_perangkat),
+    CONSTRAINT fk_pintu_ruangan FOREIGN KEY (id_ruangan)
+        REFERENCES ruangan(id_ruangan) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- 6. HAK_AKSES
+CREATE TABLE hak_akses (
+    id_hak_akses    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_pengguna     INT UNSIGNED NOT NULL,
+    id_pintu        INT UNSIGNED NOT NULL,
+    jam_mulai       TIME NOT NULL DEFAULT '00:00:00',
+    jam_selesai     TIME NOT NULL DEFAULT '23:59:59',
+    berlaku_dari    DATE NOT NULL,
+    berlaku_sampai  DATE NULL,
+    PRIMARY KEY (id_hak_akses),
+    UNIQUE KEY uq_hak_akses (id_pengguna, id_pintu, berlaku_dari),
+    CONSTRAINT fk_hak_pengguna FOREIGN KEY (id_pengguna)
+        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_hak_pintu FOREIGN KEY (id_pintu)
+        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 7. TAMU
+CREATE TABLE tamu (
+    id_tamu       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nama          VARCHAR(100) NOT NULL,
+    no_identitas  VARCHAR(30) NOT NULL,
+    no_hp         VARCHAR(15) NOT NULL,
+    instansi      VARCHAR(100) NULL,
+    PRIMARY KEY (id_tamu),
+    UNIQUE KEY uq_no_identitas (no_identitas)
+) ENGINE=InnoDB;
+
+-- 8. PERMINTAAN_AKSES_TAMU
+CREATE TABLE permintaan_akses_tamu (
+    id_permintaan    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_tamu          INT UNSIGNED NOT NULL,
+    id_host          INT UNSIGNED NOT NULL,
+    id_pintu         INT UNSIGNED NOT NULL,
+    id_penyetuju     INT UNSIGNED NULL,
+    waktu_mulai      DATETIME NOT NULL,
+    waktu_selesai    DATETIME NOT NULL,
+    kode_akses_hash  VARCHAR(255) NULL,
+    status           ENUM('MENUNGGU','DISETUJUI','DITOLAK','KEDALUWARSA') NOT NULL DEFAULT 'MENUNGGU',
+    PRIMARY KEY (id_permintaan),
+    CONSTRAINT fk_pat_tamu FOREIGN KEY (id_tamu)
+        REFERENCES tamu(id_tamu) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_pat_host FOREIGN KEY (id_host)
+        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_pat_pintu FOREIGN KEY (id_pintu)
+        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_pat_penyetuju FOREIGN KEY (id_penyetuju)
+        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- 9. LOG_AKSES
+CREATE TABLE log_akses (
+    id_log         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_pintu       INT UNSIGNED NOT NULL,
+    id_jari        INT UNSIGNED NULL,
+    id_permintaan  INT UNSIGNED NULL,
+    waktu_akses    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    metode         ENUM('FINGERPRINT','KODE_TAMU') NOT NULL,
+    hasil          ENUM('BERHASIL','GAGAL') NOT NULL,
+    alasan_gagal   VARCHAR(100) NULL,
+    PRIMARY KEY (id_log),
+    CONSTRAINT fk_log_pintu FOREIGN KEY (id_pintu)
+        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_log_jari FOREIGN KEY (id_jari)
+        REFERENCES sidik_jari(id_jari) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_log_permintaan FOREIGN KEY (id_permintaan)
+        REFERENCES permintaan_akses_tamu(id_permintaan) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- 10. PERINGATAN_KEAMANAN
+CREATE TABLE peringatan_keamanan (
+    id_peringatan  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_pintu       INT UNSIGNED NOT NULL,
+    id_log         BIGINT UNSIGNED NULL,
+    jenis          ENUM('GAGAL_BERULANG','AKSES_DILUAR_JAM','PINTU_TERBUKA_LAMA','PERANGKAT_OFFLINE') NOT NULL,
+    waktu          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status         ENUM('BARU','DIPROSES','SELESAI') NOT NULL DEFAULT 'BARU',
+    id_penangani   INT UNSIGNED NULL,
+    PRIMARY KEY (id_peringatan),
+    CONSTRAINT fk_alert_pintu FOREIGN KEY (id_pintu)
+        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_alert_log FOREIGN KEY (id_log)
+        REFERENCES log_akses(id_log) ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT fk_alert_penangani FOREIGN KEY (id_penangani)
+        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- INDEX
+CREATE INDEX idx_log_pintu_waktu ON log_akses (id_pintu, waktu_akses);
+CREATE INDEX idx_log_hasil_waktu ON log_akses (hasil, waktu_akses);
+CREATE INDEX idx_pat_status      ON permintaan_akses_tamu (status, waktu_mulai);
+CREATE INDEX idx_alert_status    ON peringatan_keamanan (status, waktu);
