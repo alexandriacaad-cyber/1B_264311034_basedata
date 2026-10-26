@@ -1,339 +1,380 @@
--- ==========================================================
--- TAHAP 1NF
--- ==========================================================
+-- TAHAP 1: BENTUK NORMAL PERTAMA (1NF)
+-- Semua atribut atomik, satu tabel besar, masih banyak redundansi.
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS akses_1nf;
+SET FOREIGN_KEY_CHECKS = 1;
+
 CREATE TABLE akses_1nf (
-    id_pengguna      VARCHAR(10),
-    jenis_jari       VARCHAR(20),
-    id_pintu         VARCHAR(10),
-    waktu_akses      DATETIME,
-    nama             VARCHAR(100),
-    no_hp            VARCHAR(15),
-    id_role          VARCHAR(5),
-    nama_role        VARCHAR(30),
-    level_akses      INT,
-    template_hash    VARCHAR(255),
-    id_ruangan       VARCHAR(10),
-    nama_ruangan     VARCHAR(50),
-    lantai           INT,
-    versi_firmware   VARCHAR(20),
-    jam_mulai        TIME,
-    jam_selesai      TIME,
-    hasil            VARCHAR(10),
-    PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses)
-);
+  id_pengguna    VARCHAR(10)  NOT NULL,
+  jenis_jari     VARCHAR(20)  NOT NULL,
+  id_pintu       VARCHAR(10)  NOT NULL,
+  waktu_akses    DATETIME     NOT NULL,
+  nama           VARCHAR(100) NOT NULL,
+  no_hp          VARCHAR(15)  NULL,
+  id_role        VARCHAR(5)   NOT NULL,
+  nama_role      VARCHAR(30)  NOT NULL,
+  level_akses    INT          NOT NULL,
+  template_hash  VARCHAR(255) NOT NULL,
+  id_ruangan     VARCHAR(10)  NOT NULL,
+  nama_ruangan   VARCHAR(50)  NOT NULL,
+  lantai         INT          NOT NULL,
+  versi_firmware VARCHAR(20)  NULL,
+  jam_mulai      TIME         NULL,
+  jam_selesai    TIME         NULL,
+  hasil          VARCHAR(10)  NOT NULL,
+  PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses)
+) ENGINE=InnoDB;
 
--- ==========================================================
--- TAHAP 2NF
--- ==========================================================
+INSERT INTO akses_1nf
+ (id_pengguna, jenis_jari, id_pintu, waktu_akses, nama, no_hp, id_role, nama_role, level_akses,
+  template_hash, id_ruangan, nama_ruangan, lantai, versi_firmware, jam_mulai, jam_selesai, hasil)
+VALUES
+ ('U001','jempol_kanan','P01','2026-10-20 07:55:00','Andi','081200000001','R01','Mahasiswa',1,'hash_a1','RG01','Lab IoT',2,'v1.2','07:00:00','17:00:00','berhasil'),
+ ('U001','jempol_kanan','P01','2026-10-21 08:02:00','Andi','081200000001','R01','Mahasiswa',1,'hash_a1','RG01','Lab IoT',2,'v1.2','07:00:00','17:00:00','berhasil'),
+ ('U001','telunjuk_kanan','P02','2026-10-21 09:10:00','Andi','081200000001','R01','Mahasiswa',1,'hash_a2','RG02','Server Room',3,'v1.1','07:00:00','12:00:00','gagal'),
+ ('U002','jempol_kanan','P01','2026-10-21 10:00:00','Budi','081200000002','R02','Dosen',2,'hash_b1','RG01','Lab IoT',2,'v1.2','06:00:00','20:00:00','berhasil');
+
+SELECT * FROM akses_1nf;
+
+
+-- TAHAP 2: BENTUK NORMAL KEDUA (2NF)
+-- Hilangkan ketergantungan parsial terhadap PK komposit:
+--   id_pengguna -> nama, no_hp, id_role, nama_role, level_akses
+--   id_pintu    -> id_ruangan, nama_ruangan, lantai, versi_firmware
+--   (id_pengguna, jenis_jari) -> template_hash
+--   (id_pengguna, id_pintu)   -> jam_mulai, jam_selesai
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS log_akses_2nf;
+DROP TABLE IF EXISTS hak_akses_2nf;
+DROP TABLE IF EXISTS sidik_jari_2nf;
+DROP TABLE IF EXISTS pintu_2nf;
+DROP TABLE IF EXISTS pengguna_2nf;
+SET FOREIGN_KEY_CHECKS = 1;
+
 CREATE TABLE pengguna_2nf (
-    id_pengguna  VARCHAR(10) PRIMARY KEY,
-    nama         VARCHAR(100),
-    no_hp        VARCHAR(15),
-    id_role      VARCHAR(5),
-    nama_role    VARCHAR(30),      -- transitif: id_role -> nama_role
-    level_akses  INT               -- transitif: id_role -> level_akses
-);
-
-CREATE TABLE sidik_jari_2nf (
-    id_pengguna    VARCHAR(10),
-    jenis_jari     VARCHAR(20),
-    template_hash  VARCHAR(255),
-    PRIMARY KEY (id_pengguna, jenis_jari),
-    FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf(id_pengguna)
-);
+  id_pengguna VARCHAR(10)  NOT NULL,
+  nama        VARCHAR(100) NOT NULL,
+  no_hp       VARCHAR(15)  NULL,
+  id_role     VARCHAR(5)   NOT NULL,
+  nama_role   VARCHAR(30)  NOT NULL,
+  level_akses INT          NOT NULL,
+  PRIMARY KEY (id_pengguna)
+) ENGINE=InnoDB;
 
 CREATE TABLE pintu_2nf (
-    id_pintu        VARCHAR(10) PRIMARY KEY,
-    id_ruangan      VARCHAR(10),
-    nama_ruangan    VARCHAR(50),   -- transitif: id_ruangan -> nama_ruangan
-    lantai          INT,           -- transitif: id_ruangan -> lantai
-    versi_firmware  VARCHAR(20)
-);
+  id_pintu       VARCHAR(10) NOT NULL,
+  id_ruangan     VARCHAR(10) NOT NULL,
+  nama_ruangan   VARCHAR(50) NOT NULL,
+  lantai         INT         NOT NULL,
+  versi_firmware VARCHAR(20) NULL,
+  PRIMARY KEY (id_pintu)
+) ENGINE=InnoDB;
+
+CREATE TABLE sidik_jari_2nf (
+  id_pengguna   VARCHAR(10)  NOT NULL,
+  jenis_jari    VARCHAR(20)  NOT NULL,
+  template_hash VARCHAR(255) NOT NULL,
+  PRIMARY KEY (id_pengguna, jenis_jari),
+  FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf (id_pengguna)
+) ENGINE=InnoDB;
 
 CREATE TABLE hak_akses_2nf (
-    id_pengguna  VARCHAR(10),
-    id_pintu     VARCHAR(10),
-    jam_mulai    TIME,
-    jam_selesai  TIME,
-    PRIMARY KEY (id_pengguna, id_pintu),
-    FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf(id_pengguna),
-    FOREIGN KEY (id_pintu)    REFERENCES pintu_2nf(id_pintu)
-);
+  id_pengguna VARCHAR(10) NOT NULL,
+  id_pintu    VARCHAR(10) NOT NULL,
+  jam_mulai   TIME        NOT NULL,
+  jam_selesai TIME        NOT NULL,
+  PRIMARY KEY (id_pengguna, id_pintu),
+  FOREIGN KEY (id_pengguna) REFERENCES pengguna_2nf (id_pengguna),
+  FOREIGN KEY (id_pintu)    REFERENCES pintu_2nf (id_pintu)
+) ENGINE=InnoDB;
 
 CREATE TABLE log_akses_2nf (
-    id_pengguna  VARCHAR(10),
-    jenis_jari   VARCHAR(20),
-    id_pintu     VARCHAR(10),
-    waktu_akses  DATETIME,
-    hasil        VARCHAR(10),
-    PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses),
-    FOREIGN KEY (id_pengguna, jenis_jari) REFERENCES sidik_jari_2nf(id_pengguna, jenis_jari),
-    FOREIGN KEY (id_pintu) REFERENCES pintu_2nf(id_pintu)
-);
+  id_pengguna VARCHAR(10) NOT NULL,
+  jenis_jari  VARCHAR(20) NOT NULL,
+  id_pintu    VARCHAR(10) NOT NULL,
+  waktu_akses DATETIME    NOT NULL,
+  hasil       VARCHAR(10) NOT NULL,
+  PRIMARY KEY (id_pengguna, jenis_jari, id_pintu, waktu_akses),
+  FOREIGN KEY (id_pengguna, jenis_jari) REFERENCES sidik_jari_2nf (id_pengguna, jenis_jari),
+  FOREIGN KEY (id_pintu) REFERENCES pintu_2nf (id_pintu)
+) ENGINE=InnoDB;
 
--- ==========================================================
--- TAHAP 3NF
--- ==========================================================
-CREATE TABLE role (
-    id_role      INT PRIMARY KEY,
-    nama_role    VARCHAR(30),
-    level_akses  INT
-);
+INSERT INTO pengguna_2nf (id_pengguna, nama, no_hp, id_role, nama_role, level_akses) VALUES
+ ('U001','Andi','081200000001','R01','Mahasiswa',1),
+ ('U002','Budi','081200000002','R02','Dosen',2);
+
+INSERT INTO pintu_2nf (id_pintu, id_ruangan, nama_ruangan, lantai, versi_firmware) VALUES
+ ('P01','RG01','Lab IoT',2,'v1.2'),
+ ('P02','RG02','Server Room',3,'v1.1');
+
+INSERT INTO sidik_jari_2nf (id_pengguna, jenis_jari, template_hash) VALUES
+ ('U001','jempol_kanan','hash_a1'),
+ ('U001','telunjuk_kanan','hash_a2'),
+ ('U002','jempol_kanan','hash_b1');
+
+INSERT INTO hak_akses_2nf (id_pengguna, id_pintu, jam_mulai, jam_selesai) VALUES
+ ('U001','P01','07:00:00','17:00:00'),
+ ('U001','P02','07:00:00','12:00:00'),
+ ('U002','P01','06:00:00','20:00:00');
+
+INSERT INTO log_akses_2nf (id_pengguna, jenis_jari, id_pintu, waktu_akses, hasil) VALUES
+ ('U001','jempol_kanan','P01','2026-10-20 07:55:00','berhasil'),
+ ('U001','jempol_kanan','P01','2026-10-21 08:02:00','berhasil'),
+ ('U001','telunjuk_kanan','P02','2026-10-21 09:10:00','gagal'),
+ ('U002','jempol_kanan','P01','2026-10-21 10:00:00','berhasil');
+
+SELECT * FROM log_akses_2nf;
+
+
+-- TAHAP 3: BENTUK NORMAL KETIGA (3NF) + PENAMBAHAN PROSES BISNIS
+-- Hilangkan ketergantungan transitif:
+--   id_role    -> nama_role, level_akses  => tabel role
+--   id_ruangan -> nama_ruangan, lantai    => tabel ruangan
+-- Proses bisnis tambahan: akses tamu (tamu, permintaan_akses_tamu),
+-- monitoring keamanan (peringatan_keamanan), pemantauan perangkat
+-- (data_kondisi_perangkat), dan rekap bulanan (rekap_akses_gagal_bulanan).
+-- Total 12 tabel.
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS rekap_akses_gagal_bulanan;
+DROP TABLE IF EXISTS data_kondisi_perangkat;
+DROP TABLE IF EXISTS peringatan_keamanan;
+DROP TABLE IF EXISTS log_akses;
+DROP TABLE IF EXISTS permintaan_akses_tamu;
+DROP TABLE IF EXISTS tamu;
+DROP TABLE IF EXISTS hak_akses;
+DROP TABLE IF EXISTS sidik_jari;
+DROP TABLE IF EXISTS pintu;
+DROP TABLE IF EXISTS ruangan;
+DROP TABLE IF EXISTS pengguna;
+DROP TABLE IF EXISTS `role`;
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE `role` (
+  id_role     INT          NOT NULL AUTO_INCREMENT,
+  nama_role   VARCHAR(30)  NOT NULL,
+  level_akses INT          NOT NULL,
+  PRIMARY KEY (id_role),
+  UNIQUE KEY uq_role_nama (nama_role)
+) ENGINE=InnoDB;
 
 CREATE TABLE ruangan (
-    id_ruangan    INT PRIMARY KEY,
-    nama_ruangan  VARCHAR(50),
-    lantai        INT,
-    gedung        VARCHAR(50)
-);
+  id_ruangan   INT          NOT NULL AUTO_INCREMENT,
+  nama_ruangan VARCHAR(50)  NOT NULL,
+  lantai       INT          NOT NULL,
+  gedung       VARCHAR(50)  NOT NULL,
+  PRIMARY KEY (id_ruangan)
+) ENGINE=InnoDB;
 
 CREATE TABLE pengguna (
-    id_pengguna   INT PRIMARY KEY,
-    nama          VARCHAR(100),
-    nim_nip       VARCHAR(20),
-    no_hp         VARCHAR(15),
-    status_aktif  BOOLEAN,
-    id_role       INT,
-    FOREIGN KEY (id_role) REFERENCES role(id_role)
-);
-
-CREATE TABLE sidik_jari (
-    id_jari        INT PRIMARY KEY,
-    id_pengguna    INT,
-    jenis_jari     VARCHAR(20),
-    template_hash  VARCHAR(255),
-    tgl_daftar     DATE,
-    FOREIGN KEY (id_pengguna) REFERENCES pengguna(id_pengguna)
-);
+  id_pengguna  INT          NOT NULL AUTO_INCREMENT,
+  nama         VARCHAR(100) NOT NULL,
+  nim_nip      VARCHAR(20)  NOT NULL,
+  no_hp        VARCHAR(15)  NULL,
+  status_aktif TINYINT(1)   NOT NULL DEFAULT 1,
+  id_role      INT          NOT NULL,
+  PRIMARY KEY (id_pengguna),
+  UNIQUE KEY uq_pengguna_nim (nim_nip),
+  FOREIGN KEY (id_role) REFERENCES `role` (id_role)
+) ENGINE=InnoDB;
 
 CREATE TABLE pintu (
-    id_pintu          INT PRIMARY KEY,
-    id_ruangan        INT,
-    kode_perangkat    VARCHAR(30),
-    versi_firmware    VARCHAR(20),
-    status_perangkat  VARCHAR(15),
-    FOREIGN KEY (id_ruangan) REFERENCES ruangan(id_ruangan)
-);
-
-CREATE TABLE hak_akses (
-    id_hak_akses   INT PRIMARY KEY,
-    id_pengguna    INT,
-    id_pintu       INT,
-    jam_mulai      TIME,
-    jam_selesai    TIME,
-    berlaku_dari   DATE,
-    berlaku_sampai DATE,
-    FOREIGN KEY (id_pengguna) REFERENCES pengguna(id_pengguna),
-    FOREIGN KEY (id_pintu)    REFERENCES pintu(id_pintu)
-);
+  id_pintu         INT         NOT NULL AUTO_INCREMENT,
+  id_ruangan       INT         NOT NULL,
+  kode_perangkat   VARCHAR(30) NOT NULL,
+  versi_firmware   VARCHAR(20) NULL,
+  status_perangkat VARCHAR(15) NOT NULL DEFAULT 'online',
+  PRIMARY KEY (id_pintu),
+  UNIQUE KEY uq_pintu_kode (kode_perangkat),
+  FOREIGN KEY (id_ruangan) REFERENCES ruangan (id_ruangan)
+) ENGINE=InnoDB;
 
 CREATE TABLE tamu (
-    id_tamu        INT PRIMARY KEY,
-    nama           VARCHAR(100),
-    no_identitas   VARCHAR(30),
-    no_hp          VARCHAR(15),
-    instansi       VARCHAR(100)
-);
-
-CREATE TABLE permintaan_akses_tamu (
-    id_permintaan   INT PRIMARY KEY,
-    id_tamu         INT,
-    id_host         INT,
-    id_pintu        INT,
-    id_penyetuju    INT,
-    waktu_mulai     DATETIME,
-    waktu_selesai   DATETIME,
-    kode_akses_hash VARCHAR(255),
-    status          VARCHAR(15),
-    FOREIGN KEY (id_tamu)      REFERENCES tamu(id_tamu),
-    FOREIGN KEY (id_host)      REFERENCES pengguna(id_pengguna),
-    FOREIGN KEY (id_pintu)     REFERENCES pintu(id_pintu),
-    FOREIGN KEY (id_penyetuju) REFERENCES pengguna(id_pengguna)
-);
-
-CREATE TABLE log_akses (
-    id_log         INT PRIMARY KEY,
-    id_pintu       INT,
-    id_jari        INT,
-    id_permintaan  INT,
-    waktu_akses    DATETIME,
-    metode         VARCHAR(15),
-    hasil          VARCHAR(10),
-    alasan_gagal   VARCHAR(100),
-    FOREIGN KEY (id_pintu)      REFERENCES pintu(id_pintu),
-    FOREIGN KEY (id_jari)       REFERENCES sidik_jari(id_jari),
-    FOREIGN KEY (id_permintaan) REFERENCES permintaan_akses_tamu(id_permintaan)
-);
-
-CREATE TABLE peringatan_keamanan (
-    id_peringatan  INT PRIMARY KEY,
-    id_pintu       INT,
-    id_log         INT,
-    jenis          VARCHAR(30),
-    waktu          DATETIME,
-    status         VARCHAR(15),
-    id_penangani   INT,
-    FOREIGN KEY (id_pintu)     REFERENCES pintu(id_pintu),
-    FOREIGN KEY (id_log)       REFERENCES log_akses(id_log),
-    FOREIGN KEY (id_penangani) REFERENCES pengguna(id_pengguna)
-);
-
--- ==========================================================
--- SMART DOOR LOCK FINGERPRINT - PEMODELAN FISIK
--- ==========================================================
-DROP DATABASE IF EXISTS smartdoorlock;
-CREATE DATABASE smartdoorlock CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE smartdoorlock;
-
--- 1. PERAN (sebelumnya: role)
-CREATE TABLE peran (
-    id_peran     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nama_peran   VARCHAR(30) NOT NULL,
-    level_akses  ENUM('1','2','3','4','5') NOT NULL,
-    PRIMARY KEY (id_peran),
-    UNIQUE KEY uq_nama_peran (nama_peran)
+  id_tamu      INT          NOT NULL AUTO_INCREMENT,
+  nama         VARCHAR(100) NOT NULL,
+  no_identitas VARCHAR(30)  NOT NULL,
+  no_hp        VARCHAR(15)  NULL,
+  instansi     VARCHAR(100) NULL,
+  PRIMARY KEY (id_tamu)
 ) ENGINE=InnoDB;
 
--- 2. RUANGAN
-CREATE TABLE ruangan (
-    id_ruangan    INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nama_ruangan  VARCHAR(50) NOT NULL,
-    lantai        TINYINT UNSIGNED NOT NULL DEFAULT 1,
-    gedung        VARCHAR(50) NOT NULL,
-    PRIMARY KEY (id_ruangan),
-    UNIQUE KEY uq_ruangan (gedung, nama_ruangan)
-) ENGINE=InnoDB;
-
--- 3. PENGGUNA
-CREATE TABLE pengguna (
-    id_pengguna   INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nama          VARCHAR(100) NOT NULL,
-    nim_nip       VARCHAR(20) NOT NULL,
-    no_hp         VARCHAR(15) NULL,
-    status_aktif  ENUM('AKTIF','NONAKTIF') NOT NULL DEFAULT 'AKTIF',
-    id_peran      INT UNSIGNED NOT NULL,
-    PRIMARY KEY (id_pengguna),
-    UNIQUE KEY uq_nim_nip (nim_nip),
-    CONSTRAINT fk_pengguna_peran FOREIGN KEY (id_peran)
-        REFERENCES peran(id_peran) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB;
-
--- 4. SIDIK_JARI
 CREATE TABLE sidik_jari (
-    id_jari        INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_pengguna    INT UNSIGNED NOT NULL,
-    jenis_jari     ENUM('JEMPOL_KANAN','TELUNJUK_KANAN','TENGAH_KANAN','MANIS_KANAN','KELINGKING_KANAN',
-                        'JEMPOL_KIRI','TELUNJUK_KIRI','TENGAH_KIRI','MANIS_KIRI','KELINGKING_KIRI') NOT NULL,
-    template_hash  VARCHAR(255) NOT NULL,
-    tgl_daftar     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id_jari),
-    UNIQUE KEY uq_jari_pengguna (id_pengguna, jenis_jari),
-    CONSTRAINT fk_jari_pengguna FOREIGN KEY (id_pengguna)
-        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE RESTRICT
+  id_jari       INT          NOT NULL AUTO_INCREMENT,
+  id_pengguna   INT          NOT NULL,
+  jenis_jari    VARCHAR(20)  NOT NULL,
+  template_hash VARCHAR(255) NOT NULL,
+  tgl_daftar    DATE         NOT NULL,
+  PRIMARY KEY (id_jari),
+  UNIQUE KEY uq_jari_pengguna (id_pengguna, jenis_jari),
+  FOREIGN KEY (id_pengguna) REFERENCES pengguna (id_pengguna)
 ) ENGINE=InnoDB;
 
--- 5. PINTU
-CREATE TABLE pintu (
-    id_pintu          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_ruangan        INT UNSIGNED NOT NULL,
-    kode_perangkat    VARCHAR(30) NOT NULL,
-    versi_firmware    VARCHAR(20) NOT NULL,
-    status_perangkat  ENUM('AKTIF','NONAKTIF','MAINTENANCE') NOT NULL DEFAULT 'AKTIF',
-    PRIMARY KEY (id_pintu),
-    UNIQUE KEY uq_kode_perangkat (kode_perangkat),
-    CONSTRAINT fk_pintu_ruangan FOREIGN KEY (id_ruangan)
-        REFERENCES ruangan(id_ruangan) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB;
-
--- 6. HAK_AKSES
 CREATE TABLE hak_akses (
-    id_hak_akses    INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_pengguna     INT UNSIGNED NOT NULL,
-    id_pintu        INT UNSIGNED NOT NULL,
-    jam_mulai       TIME NOT NULL DEFAULT '00:00:00',
-    jam_selesai     TIME NOT NULL DEFAULT '23:59:59',
-    berlaku_dari    DATE NOT NULL,
-    berlaku_sampai  DATE NULL,
-    PRIMARY KEY (id_hak_akses),
-    UNIQUE KEY uq_hak_akses (id_pengguna, id_pintu, berlaku_dari),
-    CONSTRAINT fk_hak_pengguna FOREIGN KEY (id_pengguna)
-        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE CASCADE,
-    CONSTRAINT fk_hak_pintu FOREIGN KEY (id_pintu)
-        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE CASCADE
+  id_hak_akses   INT  NOT NULL AUTO_INCREMENT,
+  id_pengguna    INT  NOT NULL,
+  id_pintu       INT  NOT NULL,
+  jam_mulai      TIME NOT NULL,
+  jam_selesai    TIME NOT NULL,
+  berlaku_dari   DATE NOT NULL,
+  berlaku_sampai DATE NOT NULL,
+  PRIMARY KEY (id_hak_akses),
+  FOREIGN KEY (id_pengguna) REFERENCES pengguna (id_pengguna),
+  FOREIGN KEY (id_pintu)    REFERENCES pintu (id_pintu)
 ) ENGINE=InnoDB;
 
--- 7. TAMU
-CREATE TABLE tamu (
-    id_tamu       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nama          VARCHAR(100) NOT NULL,
-    no_identitas  VARCHAR(30) NOT NULL,
-    no_hp         VARCHAR(15) NOT NULL,
-    instansi      VARCHAR(100) NULL,
-    PRIMARY KEY (id_tamu),
-    UNIQUE KEY uq_no_identitas (no_identitas)
-) ENGINE=InnoDB;
-
--- 8. PERMINTAAN_AKSES_TAMU
 CREATE TABLE permintaan_akses_tamu (
-    id_permintaan    INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_tamu          INT UNSIGNED NOT NULL,
-    id_host          INT UNSIGNED NOT NULL,
-    id_pintu         INT UNSIGNED NOT NULL,
-    id_penyetuju     INT UNSIGNED NULL,
-    waktu_mulai      DATETIME NOT NULL,
-    waktu_selesai    DATETIME NOT NULL,
-    kode_akses_hash  VARCHAR(255) NULL,
-    status           ENUM('MENUNGGU','DISETUJUI','DITOLAK','KEDALUWARSA') NOT NULL DEFAULT 'MENUNGGU',
-    PRIMARY KEY (id_permintaan),
-    CONSTRAINT fk_pat_tamu FOREIGN KEY (id_tamu)
-        REFERENCES tamu(id_tamu) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_pat_host FOREIGN KEY (id_host)
-        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_pat_pintu FOREIGN KEY (id_pintu)
-        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_pat_penyetuju FOREIGN KEY (id_penyetuju)
-        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE SET NULL
+  id_permintaan   INT          NOT NULL AUTO_INCREMENT,
+  id_tamu         INT          NOT NULL,
+  id_host         INT          NOT NULL,
+  id_pintu        INT          NOT NULL,
+  id_penyetuju    INT          NULL,
+  waktu_mulai     DATETIME     NOT NULL,
+  waktu_selesai   DATETIME     NOT NULL,
+  kode_akses_hash VARCHAR(255) NULL,
+  status          VARCHAR(15)  NOT NULL DEFAULT 'menunggu',
+  PRIMARY KEY (id_permintaan),
+  FOREIGN KEY (id_tamu)      REFERENCES tamu (id_tamu),
+  FOREIGN KEY (id_host)      REFERENCES pengguna (id_pengguna),
+  FOREIGN KEY (id_pintu)     REFERENCES pintu (id_pintu),
+  FOREIGN KEY (id_penyetuju) REFERENCES pengguna (id_pengguna)
 ) ENGINE=InnoDB;
 
--- 9. LOG_AKSES
 CREATE TABLE log_akses (
-    id_log         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_pintu       INT UNSIGNED NOT NULL,
-    id_jari        INT UNSIGNED NULL,
-    id_permintaan  INT UNSIGNED NULL,
-    waktu_akses    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    metode         ENUM('FINGERPRINT','KODE_TAMU') NOT NULL,
-    hasil          ENUM('BERHASIL','GAGAL') NOT NULL,
-    alasan_gagal   VARCHAR(100) NULL,
-    PRIMARY KEY (id_log),
-    CONSTRAINT fk_log_pintu FOREIGN KEY (id_pintu)
-        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_log_jari FOREIGN KEY (id_jari)
-        REFERENCES sidik_jari(id_jari) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_log_permintaan FOREIGN KEY (id_permintaan)
-        REFERENCES permintaan_akses_tamu(id_permintaan) ON UPDATE CASCADE ON DELETE RESTRICT
+  id_log        INT          NOT NULL AUTO_INCREMENT,
+  id_pintu      INT          NOT NULL,
+  id_jari       INT          NULL,
+  id_permintaan INT          NULL,
+  waktu_akses   DATETIME     NOT NULL,
+  metode        VARCHAR(15)  NOT NULL,
+  hasil         VARCHAR(10)  NOT NULL,
+  alasan_gagal  VARCHAR(100) NULL,
+  PRIMARY KEY (id_log),
+  FOREIGN KEY (id_pintu)      REFERENCES pintu (id_pintu),
+  FOREIGN KEY (id_jari)       REFERENCES sidik_jari (id_jari),
+  FOREIGN KEY (id_permintaan) REFERENCES permintaan_akses_tamu (id_permintaan)
 ) ENGINE=InnoDB;
 
--- 10. PERINGATAN_KEAMANAN
 CREATE TABLE peringatan_keamanan (
-    id_peringatan  INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_pintu       INT UNSIGNED NOT NULL,
-    id_log         BIGINT UNSIGNED NULL,
-    jenis          ENUM('GAGAL_BERULANG','AKSES_DILUAR_JAM','PINTU_TERBUKA_LAMA','PERANGKAT_OFFLINE') NOT NULL,
-    waktu          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status         ENUM('BARU','DIPROSES','SELESAI') NOT NULL DEFAULT 'BARU',
-    id_penangani   INT UNSIGNED NULL,
-    PRIMARY KEY (id_peringatan),
-    CONSTRAINT fk_alert_pintu FOREIGN KEY (id_pintu)
-        REFERENCES pintu(id_pintu) ON UPDATE CASCADE ON DELETE CASCADE,
-    CONSTRAINT fk_alert_log FOREIGN KEY (id_log)
-        REFERENCES log_akses(id_log) ON UPDATE CASCADE ON DELETE SET NULL,
-    CONSTRAINT fk_alert_penangani FOREIGN KEY (id_penangani)
-        REFERENCES pengguna(id_pengguna) ON UPDATE CASCADE ON DELETE SET NULL
+  id_peringatan INT         NOT NULL AUTO_INCREMENT,
+  id_pintu      INT         NOT NULL,
+  id_log        INT         NOT NULL,
+  id_penangani  INT         NULL,
+  jenis         VARCHAR(30) NOT NULL,
+  waktu         DATETIME    NOT NULL,
+  status        VARCHAR(15) NOT NULL DEFAULT 'baru',
+  PRIMARY KEY (id_peringatan),
+  FOREIGN KEY (id_pintu)     REFERENCES pintu (id_pintu),
+  FOREIGN KEY (id_log)       REFERENCES log_akses (id_log),
+  FOREIGN KEY (id_penangani) REFERENCES pengguna (id_pengguna)
 ) ENGINE=InnoDB;
 
--- INDEX
-CREATE INDEX idx_log_pintu_waktu ON log_akses (id_pintu, waktu_akses);
-CREATE INDEX idx_log_hasil_waktu ON log_akses (hasil, waktu_akses);
-CREATE INDEX idx_pat_status      ON permintaan_akses_tamu (status, waktu_mulai);
-CREATE INDEX idx_alert_status    ON peringatan_keamanan (status, waktu);
+CREATE TABLE data_kondisi_perangkat (
+  id_kondisi      INT          NOT NULL AUTO_INCREMENT,
+  id_pintu        INT          NOT NULL,
+  waktu_cek       DATETIME     NOT NULL,
+  tingkat_baterai TINYINT      NOT NULL,
+  kekuatan_sinyal SMALLINT     NULL,
+  status_koneksi  VARCHAR(15)  NOT NULL,
+  status_sensor   VARCHAR(15)  NOT NULL,
+  suhu_perangkat  DECIMAL(4,1) NULL,
+  catatan         VARCHAR(100) NULL,
+  PRIMARY KEY (id_kondisi),
+  UNIQUE KEY uq_kondisi_pintu_waktu (id_pintu, waktu_cek),
+  FOREIGN KEY (id_pintu) REFERENCES pintu (id_pintu)
+) ENGINE=InnoDB;
+
+CREATE TABLE rekap_akses_gagal_bulanan (
+  id_rekap           INT          NOT NULL AUTO_INCREMENT,
+  id_pintu           INT          NOT NULL,
+  tahun              SMALLINT     NOT NULL,
+  bulan              TINYINT      NOT NULL,
+  jumlah_gagal       INT          NOT NULL DEFAULT 0,
+  jumlah_total_akses INT          NOT NULL DEFAULT 0,
+  alasan_terbanyak   VARCHAR(100) NULL,
+  dibuat_pada        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_rekap),
+  UNIQUE KEY uq_rekap_pintu_periode (id_pintu, tahun, bulan),
+  FOREIGN KEY (id_pintu) REFERENCES pintu (id_pintu)
+) ENGINE=InnoDB;
+
+-- ---------------- CONTOH DATA ----------------
+INSERT INTO `role` (nama_role, level_akses) VALUES ('Mahasiswa',1),('Dosen',2),('Admin',3);
+
+INSERT INTO ruangan (nama_ruangan, lantai, gedung) VALUES ('Lab IoT',2,'Gedung A'),('Server Room',3,'Gedung A');
+
+INSERT INTO pengguna (nama, nim_nip, no_hp, status_aktif, id_role) VALUES
+ ('Andi','NIM001','081200000001',1,1),
+ ('Budi','NIP002','081200000002',1,2);
+
+INSERT INTO pintu (id_ruangan, kode_perangkat, versi_firmware, status_perangkat) VALUES
+ (1,'DL-001','v1.2','online'),
+ (2,'DL-002','v1.1','online');
+
+INSERT INTO sidik_jari (id_pengguna, jenis_jari, template_hash, tgl_daftar) VALUES
+ (1,'jempol_kanan','hash_a1','2026-10-01'),
+ (2,'jempol_kanan','hash_b1','2026-10-01');
+
+INSERT INTO hak_akses (id_pengguna, id_pintu, jam_mulai, jam_selesai, berlaku_dari, berlaku_sampai) VALUES
+ (1,1,'07:00:00','17:00:00','2026-10-01','2027-01-31'),
+ (2,1,'06:00:00','20:00:00','2026-10-01','2027-06-30');
+
+INSERT INTO tamu (nama, no_identitas, no_hp, instansi) VALUES
+ ('Citra','3573000000000001','081200000099','PT Contoh');
+
+INSERT INTO permintaan_akses_tamu
+ (id_tamu, id_host, id_pintu, id_penyetuju, waktu_mulai, waktu_selesai, kode_akses_hash, status) VALUES
+ (1,2,1,2,'2026-10-27 09:00:00','2026-10-27 11:00:00','hash_kode','disetujui');
+
+INSERT INTO log_akses (id_pintu, id_jari, id_permintaan, waktu_akses, metode, hasil, alasan_gagal) VALUES
+ (1,1,NULL,'2026-10-26 07:55:00','fingerprint','berhasil',NULL),
+ (2,1,NULL,'2026-10-26 09:10:00','fingerprint','gagal','Tidak punya hak akses'),
+ (1,NULL,1,'2026-10-27 09:05:00','kode_tamu','berhasil',NULL);
+
+INSERT INTO peringatan_keamanan (id_pintu, id_log, id_penangani, jenis, waktu, status) VALUES
+ (2,2,NULL,'akses_ditolak','2026-10-26 09:10:00','baru');
+
+INSERT INTO data_kondisi_perangkat
+ (id_pintu, waktu_cek, tingkat_baterai, kekuatan_sinyal, status_koneksi, status_sensor, suhu_perangkat, catatan) VALUES
+ (1,'2026-10-26 06:00:00',92,-55,'online','normal',31.5,NULL),
+ (1,'2026-10-26 12:00:00',88,-58,'online','normal',33.0,NULL),
+ (2,'2026-10-26 06:00:00',35,-78,'lemah','kotor',34.2,'Sensor perlu dibersihkan');
+
+-- ---------------- PENGISIAN REKAP AKSES GAGAL BULANAN ----------------
+-- Boleh dijalankan ulang kapan saja: rekap lama dihapus lalu dihitung ulang.
+DELETE FROM rekap_akses_gagal_bulanan;
+
+INSERT INTO rekap_akses_gagal_bulanan (id_pintu, tahun, bulan, jumlah_gagal, jumlah_total_akses)
+SELECT t.id_pintu, t.tahun, t.bulan,
+       SUM(CASE WHEN t.hasil = 'gagal' THEN 1 ELSE 0 END),
+       COUNT(*)
+FROM (
+  SELECT id_pintu, YEAR(waktu_akses) AS tahun, MONTH(waktu_akses) AS bulan, hasil
+  FROM log_akses
+) t
+GROUP BY t.id_pintu, t.tahun, t.bulan;
+
+UPDATE rekap_akses_gagal_bulanan r
+SET r.alasan_terbanyak = (
+  SELECT l.alasan_gagal
+  FROM log_akses l
+  WHERE l.id_pintu = r.id_pintu
+    AND YEAR(l.waktu_akses)  = r.tahun
+    AND MONTH(l.waktu_akses) = r.bulan
+    AND l.hasil = 'gagal'
+  GROUP BY l.alasan_gagal
+  ORDER BY COUNT(*) DESC
+  LIMIT 1
+);
+
+-- ---------------- QUERY VERIFIKASI ----------------
+SELECT * FROM rekap_akses_gagal_bulanan;
+
+SELECT pg.nama, rg.nama_ruangan, l.waktu_akses, l.metode, l.hasil
+FROM log_akses l
+JOIN pintu pt           ON pt.id_pintu = l.id_pintu
+JOIN ruangan rg         ON rg.id_ruangan = pt.id_ruangan
+LEFT JOIN sidik_jari sj ON sj.id_jari = l.id_jari
+LEFT JOIN pengguna pg   ON pg.id_pengguna = sj.id_pengguna
+ORDER BY l.waktu_akses;
